@@ -136,6 +136,7 @@ class PathwaysReplicatedJobTest(TestCase):
                     annotations.get("axlearn/replicatedjob-load-balancer-port", {}),
                 )
 
+
 class PathwaysMultiheadReplicatedJobTest(TestCase):
     """Tests PathwaysMultiheadReplicatedJob."""
 
@@ -200,14 +201,15 @@ class PathwaysMultiheadReplicatedJobTest(TestCase):
                 elif replicated_job_name.startswith("pathways-worker"):
                     self.assertEqual(replicated_job["replicas"], 1)
 
-class JetStreamPathwaysLeaderWorkerTemplateTest(TestCase):
-    """Test JetStreamPathwaysLeaderWorkerTemplate."""
+
+class PathwaysLeaderWorkerTemplateTest(TestCase):
+    """Test PathwaysLeaderWorkerTemplate."""
 
     @contextlib.contextmanager
     def _job_config(self, bundler_cls: type[Bundler], **kwargs):
         with mock_gcp_settings([lws_utils.__name__, bundler.__name__]):
             fv = flags.FlagValues()
-            cfg = pathways_utils.JetstreamPathwaysLeaderWorkerTemplate.default_config().set(
+            cfg = pathways_utils.PathwaysLeaderWorkerTemplate.default_config().set(
                 inner=lws_utils.TPULeaderWorkerTemplate.default_config()
             )
             define_flags(cfg, fv)
@@ -239,7 +241,7 @@ class JetStreamPathwaysLeaderWorkerTemplateTest(TestCase):
             pod = builder.build_leader_pod()
             pod_spec = pod["spec"]
 
-            self.assertEqual(len(pod_spec["containers"]), 4)
+            self.assertEqual(len(pod_spec["containers"]), 3)
 
     def test_build_worker_pod(self):
         with (
@@ -280,5 +282,5 @@ class JetStreamPathwaysLeaderWorkerTemplateTest(TestCase):
             worker_template = lws["workerTemplate"]
 
             self.assertEqual(lws["size"], 5)
-            self.assertEqual(len(leader_template["spec"]["containers"]), 4)
+            self.assertEqual(len(leader_template["spec"]["containers"]), 3)
             self.assertEqual(len(worker_template["spec"]["containers"]), 1)
