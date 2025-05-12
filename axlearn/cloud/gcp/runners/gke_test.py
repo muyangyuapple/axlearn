@@ -17,7 +17,7 @@ from axlearn.cloud.common.utils import FlagConfigurable, define_flags, from_flag
 from axlearn.cloud.gcp import bundler, node_pool_provisioner
 from axlearn.cloud.gcp.job_flink import FlinkJobStatus
 from axlearn.cloud.gcp.jobset_utils import BASTION_JOB_VERSION_LABEL, TPUReplicatedJob
-from axlearn.cloud.gcp.pathways_utils import TPULeaderWorkerTemplate
+from axlearn.cloud.gcp.lws_utils import TPULeaderWorkerTemplate
 from axlearn.cloud.gcp.node_pool import PRE_PROVISIONER_LABEL
 from axlearn.cloud.gcp.runners import gke as runner_gke
 from axlearn.cloud.gcp.runners import named_runner_configs
@@ -30,7 +30,6 @@ from axlearn.cloud.gcp.runners.gke import (
 )
 from axlearn.cloud.gcp.test_utils import default_mock_settings, mock_gcp_settings
 from axlearn.common.config import REQUIRED, Required, config_class
-from axlearn.cloud.gcp.job import GKELeaderWorkerSet
 
 
 def _mock_replicated_jobs(
@@ -271,7 +270,7 @@ class TPUGKERunnerJobTest(parameterized.TestCase):
                 self.assertEqual(builder_cfg.env_vars[k], v)
 
         # Should be instantiable.
-        runner: RunnerJob = cfg.instantiate(bundler=mock.Mock())
+        runner: GKERunnerJob = cfg.instantiate(bundler=mock.Mock())
 
         # Inner should have consistent configs.
         final_config = runner.config
@@ -1088,7 +1087,7 @@ class FlinkGKERunnerJobTest(parameterized.TestCase):
             dict(
                 status={
                     "status": {
-                        "conditions": [ 
+                        "conditions": [
                             {
                                 "type": "Complete",
                                 "status": "True",
@@ -1187,6 +1186,7 @@ class FlinkGKERunnerJobTest(parameterized.TestCase):
 
 class LWSRunnerJobTest(parameterized.TestCase):
     """Tests LWSRunnerJob."""
+
     def run(self, result=None):
         # Run tests under mock user and settings.
         self._settings = default_mock_settings()
@@ -1199,7 +1199,7 @@ class LWSRunnerJobTest(parameterized.TestCase):
             ),
         ):
             return super().run(result)
-        
+
     def _job_config(
         self, *, name: str, command: str, env_vars: Optional[dict] = None, **kwargs
     ) -> LWSRunnerJob.Config:
@@ -1217,15 +1217,14 @@ class LWSRunnerJobTest(parameterized.TestCase):
         fv.set_default("instance_type", "tpu-v4-8")
         fv.mark_as_parsed()
         return from_flags(cfg, fv, command=command)
-    
+
     @parameterized.product(
         name=[None, "test-name"],
         cluster=[None, "test-cluster"],
         enable_pre_provisioner=[None, False, True],
-        gcsfuse_mount_spec=[None, ["gcs_path=my-test-path"]],
         env_vars=[None, {"test": "123"}],
     )
-    def test_from_flags(self, name, cluster, enable_pre_provisioner, gcsfuse_mount_spec, env_vars):
+    def test_from_flags(self, name, cluster, enable_pre_provisioner, env_vars):
         cfg = self._job_config(
             command="test-command",
             name=name,
@@ -1268,7 +1267,7 @@ class LWSRunnerJobTest(parameterized.TestCase):
         fv.mark_as_parsed()
         LWSRunnerJob.set_defaults(fv)
         self.assertIsNotNone(fv["name"].default)
-    
+
     @parameterized.product(
         status=[
             runner_gke.LWSRunnerJob.Status.FAILED,
@@ -1287,7 +1286,7 @@ class LWSRunnerJobTest(parameterized.TestCase):
             job, _get_status=mock.Mock(return_value=status), _delete=mock.DEFAULT
         ):
             job._execute()
-    
+
     @parameterized.product(
         (
             # Conditions is set, so we use it.
@@ -1363,7 +1362,7 @@ class LWSRunnerJobTest(parameterized.TestCase):
             ),
         ):
             self.assertEqual(expected, job._get_status())
-    
+
     @parameterized.parameters(None, False, True)
     def test_delete(self, enable_pre_provisioner):
         cfg = self._job_config(
@@ -1387,7 +1386,7 @@ class LWSRunnerJobTest(parameterized.TestCase):
                 # pytype: disable=attribute-error
                 job._pre_provisioner.delete_for.assert_called()
                 # pytype: enable=attribute-error
-    
+
     def test_name_alias(self):
         """Tests that names set via flag aliases are retained."""
         with (
